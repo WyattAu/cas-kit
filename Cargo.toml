@@ -1,0 +1,24 @@
+[package]
+name = "cas-kit"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/WyattAu/cas-kit"
+description = "Content-addressed blob store: BLAKE3 addressing, bucketed layout, optional Zstd compression, packfiles, verify-on-read."
+readme = "README.md"
+keywords = ["content-addressed", "blake3", "storage", "cas", "packfile"]
+categories = ["filesystem", "data-structures"]
+
+[dependencies]
+blake3 = "1.8"
+thiserror = "2.0"
+tempfile = "3"
+zstd = { version = "0.13", optional = true }
+
+[dev-dependencies]
+proptest = "1.6"
+
+[features]
+default = ["zstd"]
+zstd = ["dep:zstd"]
