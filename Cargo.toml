@@ -19,6 +19,9 @@ zstd = { version = "0.13", optional = true }
 [dev-dependencies]
 proptest = "1.6"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
+
 [features]
 default = ["zstd"]
 zstd = ["dep:zstd"]

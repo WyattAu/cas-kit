@@ -533,8 +533,9 @@ impl BlobStore {
     /// Get the on-disk path for a given hash.
     fn blob_path(&self, hash: &Hash) -> PathBuf {
         let hex = hash.to_hex();
-        // INVARIANT (documented-infallible): `to_hex` always emits exactly
-        // 64 ASCII hex chars, so the 2/62 split below can never go out of
+        // INVARIANT (Kani-verified in tests/kani.rs): `to_hex` always emits
+        // exactly 64 lowercase hex chars whose first two encode
+        // `hash.bucket()`, so the 2/62 split below can never go out of
         // bounds and always yields a 2-char bucket + 62-char filename.
         let prefix = &hex[..2];
         let suffix = &hex[2..];

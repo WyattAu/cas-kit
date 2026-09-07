@@ -80,6 +80,19 @@ impl Hash {
     /// The zero hash (all zeros). Used as a sentinel value.
     pub const ZERO: Self = Self([0u8; 32]);
 
+    /// The 2-hex-prefix bucket index (`0..=255`) of this hash in the blob
+    /// store layout: blobs live under `objects/<2-hex-prefix>/<rest>`,
+    /// where the 2-hex prefix is the lowercase-hex encoding of this byte
+    /// (the digest's first byte). See `BlobStore::blob_path`.
+    ///
+    /// This is a pure function of the digest; Kani-verified in
+    /// `tests/kani.rs` to agree with the hex text form and to be stable
+    /// under the `to_hex`/`from_hex` roundtrip.
+    #[must_use]
+    pub fn bucket(&self) -> u8 {
+        self.0[0]
+    }
+
     /// Convert to a `blake3::Hash` value.
     #[must_use]
     pub fn as_blake3(&self) -> Blake3Hash {
