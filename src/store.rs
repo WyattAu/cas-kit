@@ -449,6 +449,8 @@ impl BlobStore {
         // between those two statements. The `expect` can therefore never
         // fire; it exists to convert `Option` -> `&PackCache` without
         // cloning.
+        // Justified: see invariant comment above.
+        #[allow(clippy::expect_used)]
         let cache = guard
             .as_ref()
             .expect("pack cache was populated two statements above under an exclusive lock");

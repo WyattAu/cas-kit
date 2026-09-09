@@ -1,3 +1,5 @@
+// Tests assert invariants directly; unwraps keep failures loud.
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //! Property-based tests for `cas-kit`.
 //!

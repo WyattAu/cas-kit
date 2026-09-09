@@ -394,6 +394,7 @@ impl Default for PackCache {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used, clippy::unwrap_used)] // test setup unwraps by design
     use super::*;
 
     /// Context type used to convert pack errors into `Box<dyn Error>` so
