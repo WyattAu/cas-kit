@@ -26,3 +26,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
 [features]
 default = ["zstd"]
 zstd = ["dep:zstd"]
+
+[lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
