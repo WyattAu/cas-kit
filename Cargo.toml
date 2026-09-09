@@ -9,6 +9,7 @@ description = "Content-addressed blob store: BLAKE3 addressing, bucketed layout,
 readme = "README.md"
 keywords = ["content-addressed", "blake3", "storage", "cas", "packfile"]
 categories = ["filesystem", "data-structures"]
+exclude = ["/target"]
 
 [dependencies]
 blake3 = "1.8"
