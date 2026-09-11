@@ -47,7 +47,7 @@ pub enum CasError {
         max: usize,
     },
 
-    /// [`BlobStore::put_blob_new`] was called for an existing blob.
+    /// [`crate::store::BlobStore::put_blob_new`] was called for an existing blob.
     #[error("blob already exists: {0}")]
     AlreadyExists(String),
 

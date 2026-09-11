@@ -1,5 +1,9 @@
 # cas-kit
 
+[![docs.rs](https://docs.rs/cas-kit/badge.svg)](https://docs.rs/cas-kit)
+[![crates.io](https://img.shields.io/crates/v/cas-kit.svg)](https://crates.io/crates/cas-kit)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
+
 A content-addressed storage (CAS) primitive for Rust: blobs stored on the
 local filesystem, addressed by their BLAKE3 hash, with optional Zstd
 compression, bucketed directory layout, pack files, and verify-on-read.
