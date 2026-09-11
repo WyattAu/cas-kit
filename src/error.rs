@@ -58,4 +58,15 @@ pub enum CasError {
     /// A packfile operation failed.
     #[error("pack error: {0}")]
     Pack(#[from] PackError),
+
+    /// A garbage-collection sweep was asked to trash or delete a path
+    /// outside the store root (internal invariant violation).
+    #[error("gc path outside store root: {0}")]
+    GcPathEscape(String),
+
+    /// A `spawn_blocking` task joined by an async GC wrapper panicked or
+    /// the tokio runtime was already shut down (requires the `tokio`
+    /// feature).
+    #[error("background gc task failed: {0}")]
+    TaskJoin(String),
 }

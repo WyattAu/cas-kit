@@ -1,11 +1,11 @@
 [package]
 name = "cas-kit"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/WyattAu/cas-kit"
-description = "Content-addressed blob store: BLAKE3 addressing, bucketed layout, optional Zstd compression, packfiles, verify-on-read."
+description = "Content-addressed blob store: BLAKE3 addressing, bucketed layout, optional Zstd compression, packfiles, verify-on-read, mark-sweep GC with the cas-gc CLI."
 readme = "README.md"
 keywords = ["content-addressed", "blake3", "storage", "cas", "packfile"]
 categories = ["filesystem", "data-structures"]
@@ -13,16 +13,26 @@ exclude = ["/target"]
 
 [dependencies]
 blake3 = "1.8"
+clap = { version = "4", features = ["derive"] }
 thiserror = "2.0"
 tempfile = "3"
 zstd = { version = "0.13", optional = true }
+tokio = { version = "1", optional = true, default-features = false, features = ["rt"] }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1.6"
 
+[[bin]]
+name = "cas-gc"
+path = "src/bin/cas-gc.rs"
+
 [[bench]]
 name = "cas_bench"
+harness = false
+
+[[bench]]
+name = "dedup"
 harness = false
 
 [lints.rust]
@@ -31,6 +41,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
 [features]
 default = ["zstd"]
 zstd = ["dep:zstd"]
+tokio = ["dep:tokio"]
 
 [lints.clippy]
 unwrap_used = "warn"

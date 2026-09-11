@@ -421,6 +421,15 @@ impl BlobStore {
         self.root.join("objects")
     }
 
+    /// Get the store root directory (the parent of `objects/`).
+    ///
+    /// GC sweeps in trash mode place recoverable copies under
+    /// `<root>/trash/` (see [`crate::gc`]).
+    #[must_use]
+    pub fn root(&self) -> &std::path::Path {
+        &self.root
+    }
+
     /// Get the path to the pack directory.
     pub fn pack_dir(&self) -> PathBuf {
         self.root.join("objects").join("pack")

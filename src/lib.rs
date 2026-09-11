@@ -42,6 +42,15 @@
 //!   cannot read stores written by zstd-enabled builds (reads of
 //!   compressed frames fail hash verification rather than silently
 //!   returning wrong bytes).
+//! - `tokio` (optional): async wrappers [`gc::mark_async`] /
+//!   [`gc::sweep_async`] over the blocking thread pool.
+//!
+//! # Garbage collection
+//!
+//! Objects are opaque blobs, so reachability is a host-level concept;
+//! [`gc`] implements mark–sweep over a host-supplied live set, with
+//! dry-run / trash / delete modes and pack-rewrite support. The
+//! `cas-gc` binary (same crate) drives it from the command line.
 //!
 //! # Example
 //!
@@ -61,12 +70,14 @@
 
 mod compressor;
 mod error;
+pub mod gc;
 mod hash;
 mod hasher;
 pub mod pack;
 pub mod store;
 
 pub use error::CasError;
+pub use gc::{LiveSet, SweepMode, SweepOptions, SweepPlan, SweepReport};
 pub use hash::Hash;
 pub use hasher::{hash_bytes, hash_file, hash_with_context, verify_hash};
 pub use pack::{PackCache, PackError, PackFile, PackIndex};

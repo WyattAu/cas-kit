@@ -21,6 +21,9 @@ Extracted from the [Suture](https://github.com/WyattAu/suture) codebase
   hot paths.
 - **Pack files** — bundle many small blobs into one `.pack` + sorted `.idx`
   pair; lazy pack-index caching; `repack(threshold)` in one call.
+- **Mark–sweep GC** — `gc::mark` / `gc::sweep` with dry-run, recoverable
+  trash, and delete modes; pack rewriting that drops garbage without losing
+  shared objects. Ships with the `cas-gc` CLI.
 - **Ring cache** — bounded in-memory blob cache (1024 entries, MRU-promoted).
 - **Zip-bomb safe** — decompression is capped (1 GiB).
 - **`Send + Sync`** — share a store across threads via `Arc`. Lock poisoning
@@ -97,52 +100,95 @@ trade-off measures on real hardware.
 ## Garbage collection
 
 A CAS never rewrites in place, so dropping a *reference* leaves its blob
-behind. cas-kit is deliberately storage-only — it knows nothing about your
-reference graph — so reclamation is a mark–sweep the host implements:
+behind. cas-kit objects are opaque — no tree objects, no embedded pointers —
+so **reachability is a host-level concept**: the pack manifest maps digest →
+offset only. GC is therefore an honest set difference, shipped as the
+[`gc`](https://docs.rs/cas-kit/latest/cas_kit/gc/index.html) module and the
+`cas-gc` CLI:
 
-1. **Mark.** Walk whatever your application uses to name blobs (manifests,
-   indices, message attachments) and collect the live set of hashes into a
-   `HashSet<Hash>`.
-2. **Enumerate.** List everything physically present:
+1. **Mark** — you supply the complete live set (every hash your application
+   still wants; expand manifests/chunk lists to their transitive closure
+   first). `gc::mark` validates it against what is physically present and
+   reports roots that resolve to nothing.
+2. **Plan** — `gc::plan_sweep` classifies `present − live` as garbage and
+   decides pack handling.
+3. **Sweep** — `gc::sweep` executes in one of three modes:
+
+   | Mode | Effect |
+   |---|---|
+   | `DryRun` | enumerate and report; change nothing |
+   | `Trash` | move garbage to `<root>/trash/` (atomic renames, recoverable) |
+   | `Delete` | unlink permanently |
 
    ```rust
-   # use cas_kit::BlobStore;
-   # fn example(store: &BlobStore) -> Result<(), cas_kit::CasError> {
-   let mut present = store.list_blobs()?;        // loose objects
-   present.extend(store.list_blobs_packed()?);   // objects inside packs
-   # Ok(())
-   # }
-   ```
-
-3. **Sweep.** Delete unreachable loose blobs:
-
-   ```rust
-   # use cas_kit::{BlobStore, Hash};
    # use std::collections::HashSet;
-   # fn example(store: &BlobStore, live: &HashSet<Hash>) -> Result<(), cas_kit::CasError> {
-   for hash in store.list_blobs()? {
-       if !live.contains(&hash) {
-           store.delete_blob(&hash)?;
-       }
-   }
+   # use cas_kit::gc::{self, SweepMode, SweepOptions};
+   # use cas_kit::{BlobStore, Hash};
+   # fn example(store: &BlobStore, roots: HashSet<Hash>) -> Result<(), cas_kit::CasError> {
+   let live = gc::mark(store, &roots)?;
+   let live_set: HashSet<Hash> = live.live.iter().copied().collect();
+   let report = gc::sweep(store, &live_set, SweepOptions {
+       mode: SweepMode::Trash,
+       ..SweepOptions::default()
+   })?;
+   println!("reclaimed {} bytes", report.bytes_reclaimed);
    # Ok(())
    # }
    ```
 
-Packed blobs are the one wrinkle: there is no per-blob delete inside a pack.
-To drop garbage that was already packed, *rewrite* the pack with only live
-objects — read each live blob, `PackFile::create` a new pack, delete the old
-`.pack`/`.idx` pair, then `invalidate_pack_cache()`. Packs are immutable, so
-a rebuild is always safe; schedule rewrites for maintenance windows.
+### Packs
 
-Operational notes:
+Packs are immutable and have no per-blob delete, so packed garbage is
+reclaimed at pack granularity with a coverage rule:
 
-- Don't sweep while a concurrent writer may re-add a blob you are about to
-  delete — take the same application-level lock your writers use.
-- Deleting a still-referenced blob surfaces only at *read* time
-  (`BlobNotFound`); the store cannot know your reference graph.
-- A crash mid-sweep is safe: `delete_blob` removes one immutable file per
-  call. Worst case is leftover garbage until the next sweep.
+- a pack that is *all* garbage is removed;
+- a pack with no garbage is untouched, and its objects count as covered;
+- a *partial* pack is rewritten with only the live objects it **uniquely**
+  covers — an object that also survives loose, or in a healthy pack, is not
+  copied. If nothing unique remains the pack is simply removed.
+
+Rewrites run first and are additive: the replacement pack is fully written
+before any old file is removed, and identical keep-sets converge to the same
+content-derived pack name.
+
+### Crash safety and concurrency
+
+- A crash mid-sweep can lose garbage *reclamation*, never live data: loose
+  deletion is one immutable file per call, pack removals delete the `.idx`
+  first, and the old pack pair is only removed after the replacement is
+  fully on disk. Re-running the sweep converges (and repairs a torn
+  partially-rewritten pack).
+- Reads of live objects are safe throughout: sweep never touches a file
+  whose hash is in the live set. On Windows an unlink can fail with a
+  sharing violation if a reader holds the file open — retry the sweep.
+- If a writer re-puts a blob *between* enumeration and deletion, the sweep
+  deletes the fresh copy (it was classified garbage first). Quiesce writers
+  with the same application-level lock your writers use.
+- Restoring from trash is a reverse rename of the mirrored path
+  (`trash/objects/<2-hex>/<62-hex>` → back under `objects/`). Empty the
+  trash once you are confident no restore is needed.
+
+With the optional `tokio` feature, `gc::mark_async` / `gc::sweep_async` run
+the same logic on the blocking thread pool.
+
+### The `cas-gc` CLI
+
+```text
+cargo install cas-kit   # installs the cas-gc binary
+
+cas-gc --root <DIR> mark <ROOTS_FILE>            # report; changes nothing
+cas-gc --root <DIR> sweep <ROOTS_FILE> --dry-run # what would be removed
+cas-gc --root <DIR> sweep <ROOTS_FILE> --apply   # sweep to trash (recoverable)
+cas-gc --root <DIR> sweep <ROOTS_FILE> --apply --delete  # unlink permanently
+```
+
+`ROOTS_FILE` is newline-separated 64-char hex (`#` comments, `-` = stdin).
+Human output covers scanned / live / garbage / bytes; `--json` emits a
+single stable-keyed object for automation. Exit codes: 0 success,
+1 operational failure, 2 usage error.
+
+> Future work: a FUSE mount over the store (content-addressed filesystem
+> views) — not part of 0.2.0.
 
 ## Benchmarks
 
@@ -180,6 +226,32 @@ every read). Turn it off per-store for hot read paths — the on-disk layout
 (address = filename) still guarantees corruption is *detectable* whenever
 you do choose to verify.
 
+### Deduplication
+
+`benches/dedup.rs` (criterion) ingests a synthetic corpus of 1000 files ×
+16 KiB deterministic incompressible bytes — 50% unique, 20% near-duplicates
+(same content, one byte changed), 30% exact duplicates — and measures
+ingest throughput, the dedup-hit path, and a plain-write baseline:
+
+| Measurement | Result (indicative*) |
+|---|---|
+| Storage savings (whole-object dedup) | **30.0%** (15.6 MiB logical → 10.9 MiB stored) |
+| Ingest throughput, cold store | ~51 MiB/s (306 ms for the full corpus) |
+| Naive plain-file write of the same corpus | ~219 MiB/s (71 ms) |
+| Dedup ingest overhead vs naive | **~4.3×** (BLAKE3 + zstd level 3 + bucketed writes on incompressible data) |
+| Re-ingest of an already-stored corpus (all hits) | ~518 MiB/s (30 ms) — 10× faster than cold ingest |
+
+\* Single development machine, `/tmp` on tmpfs, machine under variable
+load; treat ratios as the signal, absolute numbers as noise-prone.
+
+Granularity note: cas-kit has **no chunking** — dedup is whole-object.
+The 30% savings exactly match the exact-duplicate share. The 200
+near-duplicates (files differing from an existing blob by a single byte)
+are each stored as full new copies (~3.1 MiB): that is the headroom a
+future chunking layer (64 KiB–4 MiB chunks + manifest blobs) could reclaim.
+Run `cargo bench --bench dedup` to reproduce — the corpus report prints
+your machine's numbers at startup.
+
 See [`examples/file_store.rs`](examples/file_store.rs) for a runnable
 content-addressed file store (add / get / list / dedup / corruption demo).
 
@@ -188,6 +260,7 @@ content-addressed file store (add / get / list / dedup / corruption demo).
 | Feature | Default | Effect                                            |
 |---------|---------|---------------------------------------------------|
 | `zstd`  | yes     | Zstd compression for loose blobs and pack payloads. |
+| `tokio` | no      | Async GC wrappers (`gc::mark_async`, `gc::sweep_async`) via `spawn_blocking`. |
 
 Builds without `zstd` store everything raw. They cannot read stores written
 by zstd-enabled builds: compressed frames fail hash verification rather than
@@ -203,6 +276,7 @@ silently returning wrong bytes.
     pack/
       pack-<hex>.pack   # "SPCK" header, typed length-prefixed objects
       pack-<hex>.idx    # "SIDX" header, digest → offset, binary-searchable
+  trash/                # only after a trash-mode sweep (recoverable copies)
 ```
 
 ## Hash interop with Suture
@@ -220,12 +294,16 @@ hashes are stable across both.
 
 ## Testing
 
-- 78 tests: unit, integration (roundtrip, 256-bucket layout, pack
-  write/read/repack, cache-hit behavior) and property-based tests
-  (`proptest`) for arbitrary-bytes roundtrips with/without compression and
-  hash stability.
+- ~100 tests: unit, integration (roundtrip, 256-bucket layout, pack
+  write/read/repack, cache-hit behavior), GC (mark validation, dry-run,
+  trash recoverability, overlapping-pack rewrites, orphan cleanup,
+  unreadable-pack preservation, sweeps concurrent with readers), CLI
+  integration (`cas-gc` mark/sweep/JSON/exit codes), and property-based
+  tests (`proptest`) for arbitrary-bytes roundtrips with/without
+  compression and hash stability.
 - `cargo check --no-default-features` verified.
-- `cargo clippy -D warnings` and `cargo fmt --check` clean.
+- `cargo clippy -D warnings` (all-features and no-default-features),
+  `cargo fmt --check`, and `cargo doc` (zero warnings) clean.
 
 ## License
 
