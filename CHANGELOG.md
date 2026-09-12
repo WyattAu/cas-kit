@@ -3,6 +3,16 @@
 All notable changes to this project are documented here. Format: [Keep a
 Changelog](https://keepachangelog.com/) — versions follow [semver](https://semver.org).
 
+## [Unreleased]
+
+### Added
+
+- `tests/config_knobs.rs`: config-knob behavior matrix — default-vs-configured
+  differential tests for every public configuration surface
+  (`BlobStore::new` vs `new_uncompressed`, `set_verify_on_read`,
+  `SweepOptions::rewrite_partial_packs`, `repack(threshold)`). A knob that
+  stops changing observable behavior now fails CI (dead-knob guard).
+
 ## [0.2.1] - 2026-09-12
 
 ### Added
