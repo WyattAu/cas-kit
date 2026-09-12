@@ -77,7 +77,11 @@ Content addressing makes deduplication automatic and exact:
 2. The hash *is* the storage address (`objects/<2-hex>/<62-hex>`), so two
    writes of identical bytes target the same path.
 3. The second write sees the file already exists and returns immediately —
-   a no-op that still yields the address.
+   a no-op that still yields the address. This is not just an honor-system
+   claim: `tests/zero_alloc_dedup_hit.rs` proves with a counting allocator
+   that the hit path never allocates content-proportionally (no
+   compression buffer, no re-store), and `benches/iai_cas.rs::put_hit`
+   pins its instruction count for CI.
 
 Implications:
 
@@ -206,6 +210,17 @@ cargo bench --bench cas_bench            # everything
 cargo bench --bench cas_bench -- get/1MiB  # one slice
 ```
 
+Wall-clock numbers are noisy; the deterministic regression gate is
+`benches/iai_cas.rs` ([iai-callgrind](https://github.com/iai-callgrind/iai-callgrind)):
+it counts CPU instructions for the put-miss, dedup-hit, cold-verified-read,
+and cache-hit paths on a fixed 16 KiB blob, so a hot-path regression fails
+CI even when a busy runner hides it in the wall clock. It needs valgrind,
+so it executes in CI only (`cargo bench --bench iai_cas --no-run` works
+anywhere).
+
+Every numeric claim in this README is mapped to its proof artifact in
+[CLAIMS.md](CLAIMS.md).
+
 Indicative numbers from a development machine (NVMe, `/tmp` on tmpfs,
 deterministic *incompressible* payloads — zstd's worst case, so compressible
 real-world content will do better):
@@ -301,6 +316,11 @@ hashes are stable across both.
   integration (`cas-gc` mark/sweep/JSON/exit codes), and property-based
   tests (`proptest`) for arbitrary-bytes roundtrips with/without
   compression and hash stability.
+- `tests/zero_alloc_dedup_hit.rs`: counting-allocator proof that the
+  dedup-hit ingest path allocates a size-independent constant budget
+  (no compression buffer, no re-store of duplicates).
+- `benches/iai_cas.rs`: iai-callgrind instruction-count gate for the
+  put/get hot paths (CI-only; requires valgrind).
 - `cargo check --no-default-features` verified.
 - `cargo clippy -D warnings` (all-features and no-default-features),
   `cargo fmt --check`, and `cargo doc` (zero warnings) clean.

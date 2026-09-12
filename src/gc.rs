@@ -115,7 +115,7 @@
 //!
 //! The module is synchronous, matching the rest of the crate (filesystem
 //! operations dominate GC and blocking is the honest model). With the
-//! optional `tokio` feature, [`mark_async`] and [`sweep_async`] run the
+//! optional `tokio` feature, `mark_async` and `sweep_async` run the
 //! same code on the blocking thread pool; they take `Arc<BlobStore>` so
 //! the store can be moved into the spawned task.
 //!

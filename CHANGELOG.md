@@ -3,6 +3,28 @@
 All notable changes to this project are documented here. Format: [Keep a
 Changelog](https://keepachangelog.com/) — versions follow [semver](https://semver.org).
 
+## [0.2.1] - 2026-09-12
+
+### Added
+
+- Perf-claims proof-back pass: `CLAIMS.md` maps every numeric/perf claim in
+  the README to its proof artifact (16 backed, 1 newly proven, 0 removed).
+- `benches/iai_cas.rs`: iai-callgrind instruction-count regression gate for
+  the hot paths — `put_miss`, `put_hit` (dedup), `get_cold_verified`,
+  `get_cache_hit` on a fixed 16 KiB blob. CI-only execution (needs
+  valgrind); compiles everywhere.
+- `tests/zero_alloc_dedup_hit.rs`: counting-global-allocator proof that a
+  `put_blob` dedup hit allocates only a small size-independent constant
+  (the hex-path plumbing) — no compression buffer, no re-store — turning
+  the "second write returns immediately" README claim into a verified
+  invariant on every `cargo test` run.
+
+### Changed
+
+- README: benchmark section now links `CLAIMS.md` and documents the
+  iai-callgrind gate; the deduplication section cites its new proof
+  artifacts. No API changes.
+
 ## [0.2.0] - 2026-09-11
 
 ### Added

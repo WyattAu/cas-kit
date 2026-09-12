@@ -42,8 +42,8 @@
 //!   cannot read stores written by zstd-enabled builds (reads of
 //!   compressed frames fail hash verification rather than silently
 //!   returning wrong bytes).
-//! - `tokio` (optional): async wrappers [`gc::mark_async`] /
-//!   [`gc::sweep_async`] over the blocking thread pool.
+//! - `tokio` (optional): async wrappers `gc::mark_async` /
+//!   `gc::sweep_async` over the blocking thread pool.
 //!
 //! # Garbage collection
 //!
