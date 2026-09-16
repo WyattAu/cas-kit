@@ -13,3 +13,9 @@ jobs:
       loom: false
       wasm: false
       miri: true
+      # cas-kit's store/pack tests create directories and files; miri's
+      # default isolation blocks filesystem syscalls, so isolation must be
+      # disabled for the miri job to cover them. Tests that reach zstd's C
+      # FFI (which miri cannot execute at all) are excluded per-test via
+      # `#[cfg_attr(miri, ignore)]` with the reason documented at each site.
+      miri-flags: -Zmiri-disable-isolation

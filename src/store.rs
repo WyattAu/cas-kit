@@ -559,6 +559,13 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    // Miri cannot execute foreign (C) functions, so tests that reach zstd's
+    // FFI boundary (compression on write, repacking, decompression on read)
+    // are ignored under miri; cas-kit itself is `#![forbid(unsafe_code)]`.
+    // The store's pure-Rust surface (addressing, dedup, integrity checks,
+    // corruption detection, in-memory store) remains fully miri-checked.
+    // See .github/workflows/ci.yml for the miri configuration.
+
     /// All fallible test steps use `?` into `Box<dyn Error>`; there are no
     /// bare `unwrap()`s in this crate (enforced by the unwrap sweep gate).
     type TestResult = Result<(), Box<dyn std::error::Error>>;
@@ -682,8 +689,11 @@ mod tests {
     #[test]
     fn test_large_blob() -> TestResult {
         let (_dir, store) = make_store()?;
-        // 10 MB blob.
-        let data: Vec<u8> = (0..10_000_000).map(|i| (i % 256) as u8).collect();
+        // Miri interprets every byte op, so keep the same multi-chunk code
+        // path but a payload miri can afford (100 KB); native CI still
+        // proves the 10 MB path.
+        let size = if cfg!(miri) { 100_000 } else { 10_000_000 };
+        let data: Vec<u8> = (0..size).map(|i| (i % 256) as u8).collect();
         let hash = store.put_blob(&data)?;
 
         let retrieved = store.get_blob(&hash)?;
@@ -733,6 +743,7 @@ mod tests {
     }
 
     #[cfg(feature = "zstd")]
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_compressed_store() -> TestResult {
         let dir = tempfile::tempdir()?;
@@ -753,6 +764,7 @@ mod tests {
     }
 
     #[cfg(feature = "zstd")]
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_decompress_rejects_zip_bomb() -> TestResult {
         use std::io::Write;
@@ -800,6 +812,10 @@ mod tests {
         Ok(())
     }
 
+    // `open_in_memory` compresses writes (reaches zstd FFI), so the wiring
+    // test is ignored under miri; the store logic itself is miri-checked via
+    // the uncompressed tests above.
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_in_memory_store() -> TestResult {
         let (_root, store) = BlobStore::open_in_memory()?;
@@ -823,6 +839,13 @@ mod tests {
         }
 
         proptest! {
+            // Miri interprets every byte op; keep the same generated-input
+            // distribution but a case count miri can afford. Native CI runs
+            // the full 256 cases.
+            #![proptest_config(proptest::test_runner::Config {
+                cases: if cfg!(miri) { 8 } else { 256 },
+                ..proptest::test_runner::Config::default()
+            })]
             #[test]
             fn put_get_roundtrip(data in arb_bytes(1024)) {
                 let dir = soft(tempfile::tempdir())?;
@@ -863,6 +886,10 @@ mod tests {
     mod pack_tests {
         use super::*;
 
+        // Repacking compresses payloads through zstd's FFI, so the tests that
+        // call `repack` are ignored under miri (see the note on `mod tests`).
+
+        #[cfg_attr(miri, ignore)]
         #[test]
         fn test_get_blob_from_pack() -> TestResult {
             let dir = tempfile::tempdir()?;
@@ -884,6 +911,7 @@ mod tests {
             Ok(())
         }
 
+        #[cfg_attr(miri, ignore)]
         #[test]
         fn test_has_blob_checks_packs() -> TestResult {
             let dir = tempfile::tempdir()?;
@@ -909,6 +937,7 @@ mod tests {
             Ok(())
         }
 
+        #[cfg_attr(miri, ignore)]
         #[test]
         fn test_list_blobs_packed() -> TestResult {
             let dir = tempfile::tempdir()?;
@@ -936,6 +965,7 @@ mod tests {
             Ok(())
         }
 
+        #[cfg_attr(miri, ignore)]
         #[test]
         fn test_repack_at_threshold() -> TestResult {
             let dir = tempfile::tempdir()?;
@@ -954,6 +984,7 @@ mod tests {
             Ok(())
         }
 
+        #[cfg_attr(miri, ignore)]
         #[test]
         fn test_loose_priority_over_packed() -> TestResult {
             let dir = tempfile::tempdir()?;
@@ -979,6 +1010,7 @@ mod tests {
             Ok(())
         }
 
+        #[cfg_attr(miri, ignore)]
         #[test]
         fn test_has_blob_packed() -> TestResult {
             let dir = tempfile::tempdir()?;
@@ -992,6 +1024,7 @@ mod tests {
             Ok(())
         }
 
+        #[cfg_attr(miri, ignore)]
         #[test]
         fn test_repack_multiple_times() -> TestResult {
             let dir = tempfile::tempdir()?;
@@ -1009,6 +1042,7 @@ mod tests {
             Ok(())
         }
 
+        #[cfg_attr(miri, ignore)]
         #[test]
         fn test_pack_cache_avoids_repeated_disk_reads() -> TestResult {
             let dir = tempfile::tempdir()?;
@@ -1034,6 +1068,7 @@ mod tests {
             Ok(())
         }
 
+        #[cfg_attr(miri, ignore)]
         #[test]
         fn test_invalidate_pack_cache() -> TestResult {
             let dir = tempfile::tempdir()?;

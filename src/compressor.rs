@@ -80,8 +80,15 @@ pub fn decompress(data: &[u8]) -> Result<Vec<u8>, CasError> {
 
 #[cfg(all(test, feature = "zstd"))]
 mod tests {
+    // Miri cannot execute foreign (C) functions, so every test that reaches
+    // into zstd's FFI boundary (`ZSTD_createCCtx` and friends) is ignored
+    // under miri. cas-kit itself is `#![forbid(unsafe_code)]`; the excluded
+    // surface is pure FFI delegation, and the rest of the crate (hashing,
+    // store, pack parsing) is still exercised by the miri suite.
+    // See .github/workflows/ci.yml for the miri configuration.
     use super::*;
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_compress_decompress_roundtrip() -> Result<(), CasError> {
         let original = b"Hello! This is test data for compression roundtrip.";
@@ -91,6 +98,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_compress_larger_data() -> Result<(), CasError> {
         let original: Vec<u8> = (0..100_000).map(|i| (i % 256) as u8).collect();
@@ -103,6 +111,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_compress_empty() -> Result<(), CasError> {
         let original = b"";
@@ -112,6 +121,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_is_zstd_compressed_magic() -> Result<(), CasError> {
         // Zstd frames start with 0x28 0xB5 0x2F 0xFD.
@@ -121,12 +131,14 @@ mod tests {
         Ok::<_, CasError>(())
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_decompress_invalid_data() {
         let result = decompress(b"not zstd data at all!");
         assert!(matches!(result, Err(CasError::DecompressionError(_))));
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_compress_levels() -> Result<(), CasError> {
         let data = "The quick brown fox jumps over the lazy dog. ".repeat(1000);

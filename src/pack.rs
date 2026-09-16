@@ -397,6 +397,13 @@ mod tests {
     #![allow(clippy::expect_used, clippy::unwrap_used)] // test setup unwraps by design
     use super::*;
 
+    // Miri cannot execute foreign (C) functions: `PackFile::create` compresses
+    // payloads through zstd's FFI when the `zstd` feature is on, so tests that
+    // build a pack with objects are ignored under miri. The index serializer /
+    // parser paths are still miri-checked via the remaining tests here (and by
+    // the store pack tests that run under miri with the feature off in
+    // principle). See .github/workflows/ci.yml for the miri configuration.
+
     /// Context type used to convert pack errors into `Box<dyn Error>` so
     /// tests can use `?` instead of `unwrap`.
     type TestResult = Result<(), Box<dyn std::error::Error>>;
@@ -421,6 +428,7 @@ mod tests {
         ]
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_pack_create_and_read() -> TestResult {
         let dir = tempfile::tempdir()?;
@@ -449,6 +457,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_pack_index_sorted() -> TestResult {
         let dir = tempfile::tempdir()?;
@@ -465,6 +474,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_pack_index_find_missing() -> TestResult {
         let dir = tempfile::tempdir()?;
@@ -487,6 +497,7 @@ mod tests {
         assert!(matches!(result, Err(PackError::EmptyPack)));
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_pack_list_packs() -> TestResult {
         let dir = tempfile::tempdir()?;
@@ -506,6 +517,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_pack_cache() -> TestResult {
         let dir = tempfile::tempdir()?;
@@ -529,6 +541,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_pack_cache_missing() -> TestResult {
         let dir = tempfile::tempdir()?;
@@ -554,6 +567,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_pack_single_object() -> TestResult {
         let dir = tempfile::tempdir()?;
@@ -571,6 +585,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_pack_index_corrupt_version() -> TestResult {
         let dir = tempfile::tempdir()?;
@@ -588,6 +603,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn test_index_len_is_empty_consistency() -> TestResult {
         let dir = tempfile::tempdir()?;
