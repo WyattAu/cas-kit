@@ -1,4 +1,5 @@
 # cas-kit
+[![Estate integration](https://github.com/WyattAu/estate-integration/actions/workflows/ci.yml/badge.svg)](https://github.com/WyattAu/estate-integration/actions/workflows/ci.yml)
 
 [![docs.rs](https://docs.rs/cas-kit/badge.svg)](https://docs.rs/cas-kit)
 [![crates.io](https://img.shields.io/crates/v/cas-kit.svg)](https://crates.io/crates/cas-kit)
