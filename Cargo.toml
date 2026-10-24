@@ -1,11 +1,11 @@
 [package]
 name = "cas-kit"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/WyattAu/cas-kit"
-description = "Content-addressed blob store: BLAKE3 addressing, bucketed layout, optional Zstd compression, packfiles, verify-on-read, mark-sweep GC with the cas-gc CLI."
+description = "Content-addressed blob store: BLAKE3 addressing, 2-hex bucketing, optional Zstd, packfiles, verify-on-read. Extracted from Suture."
 readme = "README.md"
 keywords = ["content-addressed", "blake3", "storage", "cas", "packfile"]
 categories = ["filesystem", "data-structures"]
