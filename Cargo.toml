@@ -1,6 +1,6 @@
 [package]
 name = "cas-kit"
-version = "0.2.2"
+version = "1.0.0"
 edition = "2021"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"

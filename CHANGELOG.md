@@ -84,6 +84,24 @@ Changelog](https://keepachangelog.com/) — versions follow [semver](https://sem
 - `BlobStore::root()` accessor; `CasError::GcPathEscape` and
   `CasError::TaskJoin` variants.
 
+## [1.0.0] - 2026-10-25
+
+### Declared stable
+
+First 1.0. `cas-kit` underpins estate storage (aperture-vault, estate-integration fixtures); this release commits the BLAKE3 addressing, bucketing, packfile, and verify-on-read surfaces as API-stable.
+
+### Guarantees from here on
+
+- Breaking changes to public items require a minor bump plus a `#[deprecated]`
+  window of at least one minor release.
+- MSRV bumps are minor releases, not patch releases.
+- `#![deny(missing_docs)]` and `#![forbid(unsafe_code)]` are enforced.
+- Content addresses computed by any 1.x release verify against every later 1.x release.
+
+### Explicitly not guaranteed
+
+- The packfile on-disk format may gain fields in minors; readers must tolerate unknown entries.
+
 ## [0.1.0] - 2026-09-05
 
 ### Added
